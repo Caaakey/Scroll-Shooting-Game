@@ -1,83 +1,128 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
 
 namespace SSAction.Core.Characters
 {
-    using Interfaces;
-    public class CharacterModule : MonoBehaviour, IAnimationStatus
+    public class CharacterModule : MonoBehaviour
     {
+        [Flags]
+        public enum StatusFlag
+        {
+            isLeft      = 1,
+            isReverse   = 2,
+            isMove      = 4,
+            isJump      = 8
+        }
+
+        private const string RUN = "Run";
+        private const string JUMP = "Jump";
+        private const string JUMP_DOWN = "JumpDown";
+
         [SerializeField] private Animator animator = null;
+        [SerializeField] private Rigidbody2D rootRigid = null;
+        [SerializeField] private Transform bottomPosition = null;
+        [SerializeField] private CircleCollider2D bottomCollider = null;
 
-        private bool isLeft = false;
-        private bool isReverse = false;
-
-        public AnimStatus Status { get; set; } = AnimStatus.Idle;
-
-        public void ChangeStatus(AnimStatus status, bool isSet)
-        {
-            switch (status)
-            {
-                case AnimStatus.Idle:
-                    animator.SetBool(0, false);
-                    break;
-            }
-
-            Status = status;
-            animator.SetBool(0, isSet);
-        }
-
-        private void Awake()
-        {
-
-        }
+        public float jumpPower = 4.5f;
+        [NonSerialized] public StatusFlag status = 0;
 
         private void Update()
         {
             if (Input.GetKey(KeyCode.LeftArrow))
             {
-                if (!isLeft)
+                if (!BitUtility.IsSet(status, StatusFlag.isLeft))
                 {
-                    isReverse = true;
-                    isLeft = true;
+                    BitUtility.Set(ref status, StatusFlag.isReverse);
+                    BitUtility.Set(ref status, StatusFlag.isLeft);
                 }
 
-                ChangeStatus(AnimStatus.Run, true);
+                if (!BitUtility.IsSet(status, StatusFlag.isJump))
+                    animator.SetBool(RUN, true);
+
+                BitUtility.Set(ref status, StatusFlag.isMove);
             }
             else if (Input.GetKey(KeyCode.RightArrow))
             {
-                if (isLeft)
+                if (BitUtility.IsSet(status, StatusFlag.isLeft))
                 {
-                    isReverse = true;
-                    isLeft = false;
+                    BitUtility.Set(ref status, StatusFlag.isReverse);
+                    BitUtility.UnSet(ref status, StatusFlag.isLeft);
                 }
 
-                ChangeStatus(AnimStatus.Run, true);
+                if (!BitUtility.IsSet(status, StatusFlag.isJump))
+                    animator.SetBool(RUN, true);
+
+                BitUtility.Set(ref status, StatusFlag.isMove);
             }
             else
             {
-                ChangeStatus(AnimStatus.Idle, true);
+                animator.SetBool(RUN, false);
+                BitUtility.UnSet(ref status, StatusFlag.isMove);
             }
+
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                if (BitUtility.IsSet(status, StatusFlag.isJump)) return;
+
+                animator.SetBool(RUN, false);
+                animator.SetBool(JUMP, true);
+                transform.Translate(new Vector3(0, -bottomPosition.localPosition.y * .5f, 0));
+
+                rootRigid.velocity = Vector2.zero;
+                rootRigid.AddForce(new Vector2(0, jumpPower));
+
+                BitUtility.Set(ref status, StatusFlag.isJump);
+                bottomCollider.enabled = true;
+            }
+
+            if (BitUtility.IsSet(status, StatusFlag.isMove) &&
+                    rootRigid.velocity.y < -Mathf.Epsilon)
+            {
+                animator.SetBool(RUN, false);
+                animator.SetBool(JUMP, true);
+                animator.SetTrigger(JUMP_DOWN);
+
+                BitUtility.Set(ref status, StatusFlag.isJump);
+                bottomCollider.enabled = true;
+            }
+            else
+            {
+                animator.ResetTrigger(JUMP_DOWN);
+            }
+        }
+
+        private void OnTriggerStay2D(Collider2D collision)
+        {
+            if (collision.gameObject.layer != 9) return;
+            if (rootRigid.velocity.y <= 0)
+            {
+                animator.SetBool(JUMP, false);
+                BitUtility.UnSet(ref status, StatusFlag.isJump);
+            }
+
+            if (rootRigid.velocity.y == 0)
+                bottomCollider.enabled = false;
         }
 
         private void FixedUpdate()
         {
-            switch (Status)
+            if (BitUtility.IsSet(status, StatusFlag.isMove))
             {
-                case AnimStatus.Run:
-                    if (isReverse)
-                    {
-                        transform.localRotation = isLeft ? Quaternion.Euler(0, 180, 0) : Quaternion.identity;
-                        isReverse = false;
-                    }
+                if (BitUtility.IsSet(status, StatusFlag.isReverse))
+                {
+                    transform.localRotation = BitUtility.IsSet(status, StatusFlag.isLeft) ?
+                        Quaternion.Euler(0, 180, 0) : Quaternion.identity;
 
-                    transform.Translate(1f * Time.fixedDeltaTime, 0, 0);
-                    break;
+                    BitUtility.Set(ref status, StatusFlag.isReverse);
+                }
 
-                default: break;
+                transform.Translate(1f * Time.fixedDeltaTime, 0, 0);
             }
         }
+
     }
 
 }
