@@ -27,6 +27,7 @@ namespace SSAction.Core.Characters
         [SerializeField] private CircleCollider2D bottomCollider = null;
 
         public float jumpPower = 4.5f;
+        public float moveSpeed = 1f;
         [NonSerialized] public StatusFlag status = 0;
 
         private void Update()
@@ -35,8 +36,8 @@ namespace SSAction.Core.Characters
             {
                 if (!BitUtility.IsSet(status, StatusFlag.isLeft))
                 {
-                    BitUtility.Set(ref status, StatusFlag.isReverse);
                     BitUtility.Set(ref status, StatusFlag.isLeft);
+                    transform.localRotation = Quaternion.Euler(0, 180, 0);
                 }
 
                 if (!BitUtility.IsSet(status, StatusFlag.isJump))
@@ -48,8 +49,8 @@ namespace SSAction.Core.Characters
             {
                 if (BitUtility.IsSet(status, StatusFlag.isLeft))
                 {
-                    BitUtility.Set(ref status, StatusFlag.isReverse);
                     BitUtility.UnSet(ref status, StatusFlag.isLeft);
+                    transform.localRotation = Quaternion.identity;
                 }
 
                 if (!BitUtility.IsSet(status, StatusFlag.isJump))
@@ -81,16 +82,15 @@ namespace SSAction.Core.Characters
             if (BitUtility.IsSet(status, StatusFlag.isMove) &&
                     rootRigid.velocity.y < -Mathf.Epsilon)
             {
-                animator.SetBool(RUN, false);
-                animator.SetBool(JUMP, true);
-                animator.SetTrigger(JUMP_DOWN);
+                if (!animator.GetBool(JUMP))
+                {
+                    animator.SetBool(RUN, false);
+                    animator.SetBool(JUMP, true);
+                    animator.SetTrigger(JUMP_DOWN);
 
-                BitUtility.Set(ref status, StatusFlag.isJump);
-                bottomCollider.enabled = true;
-            }
-            else
-            {
-                animator.ResetTrigger(JUMP_DOWN);
+                    BitUtility.Set(ref status, StatusFlag.isJump);
+                    bottomCollider.enabled = true;
+                }
             }
         }
 
@@ -111,15 +111,7 @@ namespace SSAction.Core.Characters
         {
             if (BitUtility.IsSet(status, StatusFlag.isMove))
             {
-                if (BitUtility.IsSet(status, StatusFlag.isReverse))
-                {
-                    transform.localRotation = BitUtility.IsSet(status, StatusFlag.isLeft) ?
-                        Quaternion.Euler(0, 180, 0) : Quaternion.identity;
-
-                    BitUtility.Set(ref status, StatusFlag.isReverse);
-                }
-
-                transform.Translate(1f * Time.fixedDeltaTime, 0, 0);
+                transform.Translate(moveSpeed * Time.fixedDeltaTime, 0, 0);
             }
         }
 
