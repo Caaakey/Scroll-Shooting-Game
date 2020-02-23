@@ -12,9 +12,8 @@ namespace SSAction.Core.Characters
         public enum StatusFlag
         {
             isLeft      = 1,
-            isReverse   = 2,
-            isMove      = 4,
-            isJump      = 8
+            isMove      = 2,
+            isJump      = 4
         }
 
         private const string RUN = "Run";
@@ -29,6 +28,8 @@ namespace SSAction.Core.Characters
         public float jumpPower = 4.5f;
         public float moveSpeed = 1f;
         [NonSerialized] public StatusFlag status = 0;
+
+        public bool IsMove { get { return BitUtility.IsSet(status, StatusFlag.isMove); } }
 
         private void Update()
         {
